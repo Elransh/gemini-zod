@@ -1,9 +1,40 @@
 // src/__tests__/main.test.ts
 import { SchemaType } from '../util';
 import { toGeminiSchema, toZodSchema } from '../index';
+import { responseSchemaFromZod } from '../generationConfig';
 import { z } from 'zod';
+import { GoogleGenerativeAI } from '@google/generative-ai';
+const genAI = new GoogleGenerativeAI("123");
+
+
+const exampleZodSchema = z.object({
+  name: z.string(),
+  age: z.number(),
+  isStudent: z.boolean(),
+});
+
+const model = genAI.getGenerativeModel({
+  model: "gemini-1.5-pro",
+  generationConfig: {
+    maxOutputTokens: 100,
+    ...responseSchemaFromZod(exampleZodSchema),
+  }
+});
 
 describe('toGeminiSchema', () => {
+  test('model converted to Gemini schema', () => {
+    const geminiSchema = model.generationConfig.responseSchema;
+    expect(geminiSchema).toEqual({
+      type: SchemaType.OBJECT,
+      properties: {
+        name: { type: SchemaType.STRING, nullable: false },
+        age: { type: SchemaType.NUMBER, nullable: false },
+        isStudent: { type: SchemaType.BOOLEAN, nullable: false },
+      },
+      required: ['name', 'age', 'isStudent'],
+      nullable: false,
+    });
+  });
   test('converts ZodObject to Gemini schema', () => {
     const zodSchema = z.object({
       name: z.string(),
@@ -164,4 +195,4 @@ describe('toZodSchema', () => {
       (castedZodSchema.shape.scores as z.ZodArray<any>).element,
     ).toBeInstanceOf(z.ZodNumber);
   });
-});
+});  

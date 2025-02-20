@@ -1,3 +1,5 @@
+import { ZodFirstPartySchemaTypes, ZodFirstPartyTypeKind } from "zod";
+
 export enum SchemaType {
     /** String type. */
     STRING = "string",
@@ -14,6 +16,6 @@ export enum SchemaType {
 }
   
     // Helper function to check the type of Zod schema
-export function getZodType(schema: any): string {
-    return schema._def.typeName;
+export function getZodType(schema: ZodFirstPartySchemaTypes): ZodFirstPartyTypeKind {
+    return schema._def?.typeName
 }

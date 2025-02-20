@@ -1,6 +1,8 @@
 import { getZodType, SchemaType } from './util';
+import type { ResponseSchema, Schema } from "@google/generative-ai";
+import { ZodFirstPartyTypeKind, type ZodRawShape, type ZodType, type ZodTypeAny, ZodArray, ZodObject } from 'zod';
 
-function decorateGeminiSchema(geminiSchema: any, zodSchema: any) {
+function decorateGeminiSchema(geminiSchema: Schema, zodSchema: ZodType): Schema {
   if (geminiSchema.nullable === undefined) {
     geminiSchema.nullable = zodSchema.isOptional();
   }
@@ -12,7 +14,7 @@ function decorateGeminiSchema(geminiSchema: any, zodSchema: any) {
   return geminiSchema;
 }
 
-function decorateZodSchema(z: any, geminiSchema: any) {
+function decorateZodSchema(z: ZodType, geminiSchema: Schema) {
   if (geminiSchema.nullable) {
     z = z.nullable();
   }
@@ -23,25 +25,27 @@ function decorateZodSchema(z: any, geminiSchema: any) {
   return z;
 }
 
-export function toGeminiSchema(zodSchema: any): any {
+export function toGeminiSchema(zodSchema: ZodTypeAny): ResponseSchema {
   const zodType = getZodType(zodSchema);
 
   switch (zodType) {
-    case 'ZodArray':
+    case ZodFirstPartyTypeKind.ZodArray:
+      const arraySchema = zodSchema as ZodArray<any, any>;
       return decorateGeminiSchema(
         {
           type: SchemaType.ARRAY,
-          items: toGeminiSchema(zodSchema.element),
+          items: toGeminiSchema(arraySchema.element),
         },
         zodSchema,
       );
-    case 'ZodObject':
+    case ZodFirstPartyTypeKind.ZodObject:
+      const objectSchema = zodSchema as ZodObject<ZodRawShape, any, ZodTypeAny>;
       const properties: Record<string, any> = {};
       const required: string[] = [];
 
-      Object.entries(zodSchema.shape).forEach(([key, value]: [string, any]) => {
+      Object.entries(objectSchema.shape).forEach(([key, value]: [string, any]) => {
         properties[key] = toGeminiSchema(value);
-        if (getZodType(value) !== 'ZodOptional') {
+        if (getZodType(value) !== ZodFirstPartyTypeKind.ZodOptional) {
           required.push(key);
         }
       });
@@ -54,28 +58,28 @@ export function toGeminiSchema(zodSchema: any): any {
         },
         zodSchema,
       );
-    case 'ZodString':
+    case ZodFirstPartyTypeKind.ZodString:
       return decorateGeminiSchema(
         {
           type: SchemaType.STRING,
         },
         zodSchema,
       );
-    case 'ZodNumber':
+    case ZodFirstPartyTypeKind.ZodNumber:
       return decorateGeminiSchema(
         {
           type: SchemaType.NUMBER,
         },
         zodSchema,
       );
-    case 'ZodBoolean':
+    case ZodFirstPartyTypeKind.ZodBoolean:
       return decorateGeminiSchema(
         {
           type: SchemaType.BOOLEAN,
         },
         zodSchema,
       );
-    case 'ZodEnum':
+    case ZodFirstPartyTypeKind.ZodEnum:
       return decorateGeminiSchema(
         {
           type: SchemaType.STRING,
@@ -83,9 +87,9 @@ export function toGeminiSchema(zodSchema: any): any {
         },
         zodSchema,
       );
-    case 'ZodDefault':
-    case 'ZodNullable':
-    case 'ZodOptional':
+    case ZodFirstPartyTypeKind.ZodDefault:
+    case ZodFirstPartyTypeKind.ZodNullable:
+    case ZodFirstPartyTypeKind.ZodOptional:
       const innerSchema = toGeminiSchema(zodSchema._def.innerType);
       return decorateGeminiSchema(
         {
@@ -94,7 +98,7 @@ export function toGeminiSchema(zodSchema: any): any {
         },
         zodSchema,
       );
-    case 'ZodLiteral':
+    case ZodFirstPartyTypeKind.ZodLiteral:
       return decorateGeminiSchema(
         {
           type: SchemaType.STRING,
